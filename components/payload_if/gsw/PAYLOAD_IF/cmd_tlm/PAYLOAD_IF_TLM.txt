@@ -1,5 +1,5 @@
 TELEMETRY PAYLOAD_IF PAYLOAD_IF_HK_TLM <%= CosmosCfsConfig::PROCESSOR_ENDIAN %> "PAYLOAD_IF_Hk_tlm_t"
-  APPEND_ID_ITEM CCSDS_STREAMID       16 UINT 0x08FA  "CCSDS Packet Identification" BIG_ENDIAN
+  APPEND_ID_ITEM CCSDS_STREAMID       16 UINT 0x0860  "CCSDS Packet Identification" BIG_ENDIAN
   APPEND_ITEM    CCSDS_SEQUENCE       16 UINT         "CCSDS Packet Sequence Control" BIG_ENDIAN
   APPEND_ITEM    CCSDS_LENGTH         16 UINT         "CCSDS Packet Data Length" BIG_ENDIAN
   APPEND_ITEM    CCSDS_SECONDS        32 UINT         "CCSDS Telemetry Secondary Header (seconds)" BIG_ENDIAN
@@ -18,7 +18,7 @@ TELEMETRY PAYLOAD_IF PAYLOAD_IF_HK_TLM <%= CosmosCfsConfig::PROCESSOR_ENDIAN %> 
   APPEND_ITEM    DEVICE_STATUS        32 UINT         "Reported Device Status"
 
 TELEMETRY PAYLOAD_IF PAYLOAD_IF_DATA_TLM <%= CosmosCfsConfig::PROCESSOR_ENDIAN %> "PAYLOAD_IF_Device_tlm_t"
-  APPEND_ID_ITEM CCSDS_STREAMID       16 UINT 0x08FB  "CCSDS Packet Identification" BIG_ENDIAN
+  APPEND_ID_ITEM CCSDS_STREAMID       16 UINT 0x0861  "CCSDS Packet Identification" BIG_ENDIAN
   APPEND_ITEM    CCSDS_SEQUENCE       16 UINT         "CCSDS Packet Sequence Control" BIG_ENDIAN
   APPEND_ITEM    CCSDS_LENGTH         16 UINT         "CCSDS Packet Data Length" BIG_ENDIAN
   APPEND_ITEM    CCSDS_SECONDS        32 UINT         "CCSDS Telemetry Secondary Header (seconds)" BIG_ENDIAN
