@@ -7,18 +7,12 @@ include_directories(public_inc)
 include_directories(mission_inc)
 include_directories(platform_inc)
 include_directories(src)
-include_directories(src/spicenet/include)
 
 include_directories(../shared)
 include_directories(${hwlib_MISSION_DIR}/fsw/public_inc)
 include_directories(${APPLICATION_PLATFORM_INC_LIST})
 
 aux_source_directory(src APP_SRC_FILES)
-aux_source_directory(src/spicenet/lib/spicenet SPICENET_SRC_FILES)
-
-set_source_files_properties(${SPICENET_SRC_FILES} PROPERTIES COMPILE_FLAGS "-w")
-
-list(APPEND APP_SRC_FILES ${SPICENET_SRC_FILES})
 
 # Create the app module
 add_cfe_app(payload_if ${APP_SRC_FILES}
