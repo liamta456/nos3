@@ -736,5 +736,35 @@
             </hardware-model>
         </simulator>
 
+        <simulator>
+            <name>payload_if-sim</name>
+            <active>true</active>
+            <library>libpayload_if_sim.so</library>
+            <hardware-model>
+                <type>PAYLOAD_IF</type>
+                <connections>
+                    <connection><type>command</type>
+                        <bus-name>command</bus-name>
+                        <node-name>payload_if-command</node-name>
+                    </connection>
+                    <connection><type>usart</type>
+                        <bus-name>usart_17</bus-name>
+                        <node-port>17</node-port>
+                    </connection>
+                </connections>
+                <data-provider>
+                    <type>PAYLOAD_IF_PROVIDER</type>
+                    <!--
+                    <type>SAMPLE_42_PROVIDER</type>
+                    <hostname>fortytwo</hostname>
+                    <port>4242</port>
+                    <max-connection-attempts>30</max-connection-attempts>
+                    <retry-wait-seconds>1</retry-wait-seconds>
+                    <spacecraft>0</spacecraft>
+                    -->
+                </data-provider>
+            </hardware-model>
+        </simulator>
+
     </simulators>
 </nos3-configuration>

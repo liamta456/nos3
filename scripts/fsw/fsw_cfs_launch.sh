@@ -138,7 +138,8 @@ do
     gnome-terminal --tab --title=$SC_NUM" - TMP100 Sim"   -- $DFLAGS -v $SIM_DIR:$SIM_DIR --name $SC_NUM"-tmp100-sim"   -v /dev/shm:/dev/shm --network=$SC_NETNAME -w $SIM_BIN $DBOX ./nos3-single-simulator $SC_CFG_FILE tmp100-sim
     gnome-terminal --tab --title=$SC_NUM" - Heater Sim"   -- $DFLAGS -v $SIM_DIR:$SIM_DIR --name $SC_NUM"-heater-sim"   -v /dev/shm:/dev/shm --network=$SC_NETNAME -w $SIM_BIN $DBOX ./nos3-single-simulator $SC_CFG_FILE heater-sim
     gnome-terminal --tab --title=$SC_NUM" - Torquer Sim"  -- $DFLAGS -v $SIM_DIR:$SIM_DIR --name $SC_NUM"-torquer-sim"  -h trq-sim --network=$SC_NETNAME -w $SIM_BIN $DBOX ./nos3-single-simulator $SC_CFG_FILE generic-torquer-sim
-    
+    gnome-terminal --tab --title=$SC_NUM" - Payload IF Sim"   -- $DFLAGS -v $SIM_DIR:$SIM_DIR --name $SC_NUM"-payload_if-sim"   -v /dev/shm:/dev/shm --network=$SC_NETNAME -w $SIM_BIN $DBOX ./nos3-single-simulator $SC_CFG_FILE payload_if-sim
+
     # gnome-terminal --tab --title=$SC_NUM" - Blackboard Sim"  -- $DFLAGS -v $SIM_DIR:$SIM_DIR --name $SC_NUM"-blackboard-sim" -v /dev/shm:/dev/shm -h blackboard-sim --network=$SC_NETNAME -w $SIM_BIN $DBOX ./nos3-single-simulator $SC_CFG_FILE blackboard-sim
     # cp cfg/InOut/Inp_IPC.shmem.txt cfg/InOut/Inp_IPC.txt
     # cp cfg/sims/nos3-simulator.shmem.xml cfg/sims/nos3-simulator.xml

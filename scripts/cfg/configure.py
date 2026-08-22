@@ -127,6 +127,7 @@ else:
         sc_heater_en = sc_root.find('components/heater/enable').text
         sc_torquer_en = sc_root.find('components/torquer/enable').text
         sc_thruster_en = sc_root.find('components/thruster/enable').text
+        sc_payload_if_en = sc_root.find('components/payload_if/enable').text
 
         sc_gui_en = sc_root.find('gui/enable').text
         sc_orbit_tipoff_x = sc_root.find('orbit/tipoff_x').text
@@ -170,6 +171,7 @@ else:
             heater_line = ""
             torquer_line = ""
             thruster_line = ""
+            payload_if_line = ""
 
             # Parse lines
             for line in lines:
@@ -251,6 +253,9 @@ else:
                 if line.find('THRUSTER,') != -1:
                     if (sc_thruster_en == 'true'):
                         thruster_line = line
+                if line.find('PAYLOAD_IF') != -1:
+                    if (sc_payload_if_en == 'true'):
+                        payload_if_line = line
 
         # Modify startup script per spacecraft configuration
         lines.insert(sc_startup_eof, "\n")
@@ -279,6 +284,7 @@ else:
         lines.insert(sc_startup_eof, fm_line)
         lines.insert(sc_startup_eof, ds_line)
         lines.insert(sc_startup_eof, cf_line)
+        lines.insert(sc_startup_eof, payload_if_line)
                         
         # Write startup script file
         with open('./cfg/build/nos3_defs/cpu1_cfe_es_startup.scr', 'w') as fp:
@@ -459,6 +465,7 @@ else:
         torquer_index = 999
         thruster_index = 999
         heater_index = 999
+        payload_if_index = 999
 
         with open('./cfg/build/sims/nos3-simulator.xml', 'r') as fp:
             lines = fp.readlines()
@@ -513,6 +520,9 @@ else:
                 if line.find('heater-sim</name>') != -1:
                     if (lines.index(line)) < heater_index:
                         heater_index = lines.index(line) + 1
+                if line.find('payload_if-sim</name>') != -1:
+                    if (lines.index(line)) < payload_if_index:
+                        payload_if_index = lines.index(line) + 1
 
         sim_disabled = '            <active>false</active>\n'
         if (sc_cam_en != 'true'):
@@ -545,6 +555,8 @@ else:
             lines[thruster_index] = sim_disabled
         if (sc_heater_en != 'true'):
             lines[heater_index] = sim_disabled
+        if (sc_payload_if_en != 'true'):
+            lines[payload_if_index] = sim_disabled
 
         with open('./cfg/build/sims/nos3-simulator.xml', 'w') as fp:
             lines = "".join(lines)
