@@ -53,7 +53,7 @@ add_cfe_coverage_test(payload_if DEVICE
 # cfe_msg_ccsdspri.c implementation, not a stub standing in for it.
 add_cfe_coverage_test(payload_if CCSDS
     "coveragetest/coveragetest_payload_if_ccsds.c"
-    "${PROJECT_SOURCE_DIR}/../../../fsw/cfe/modules/msg/fsw/src/cfe_msg_ccsdspri.c"
+    "${PROJECT_SOURCE_DIR}/../../../../fsw/cfe/modules/msg/fsw/src/cfe_msg_ccsdspri.c"
 )
 
 add_cfe_coverage_dependency(payload_if ALL payload_if-internal)
