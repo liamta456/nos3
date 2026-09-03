@@ -21,39 +21,47 @@ int32_t PAYLOAD_IF_ReadData(uart_info_t *device, uint8_t *read_data, uint8_t dat
     int32_t bytes_available    = 0;
     uint8_t ms_timeout_counter = 0;
 
-    /* Wait until all data received or timeout occurs */
-    bytes_available = uart_bytes_available(device);
-    while ((bytes_available < data_length) && (ms_timeout_counter < PAYLOAD_IF_CFG_MS_TIMEOUT))
+    /* Custom read logic, polling uart_bytes_available() and only calling uart_read_port()
+       for currently available bytes
+    */
+    int32_t bytes_read = 0;
+    while ((bytes_read < data_length) && (ms_timeout_counter < PAYLOAD_IF_CFG_MS_TIMEOUT))
     {
-        ms_timeout_counter++;
-        OS_TaskDelay(1);
         bytes_available = uart_bytes_available(device);
-    }
 
-    if (ms_timeout_counter < PAYLOAD_IF_CFG_MS_TIMEOUT)
-    {
-        /* Limit bytes available */
-        if (bytes_available > data_length)
+        if (bytes_available > 0)
         {
-            bytes_available = data_length;
+            if (bytes_available > (data_length - bytes_read))
+            {
+                bytes_available = data_length - bytes_read;
+            }
+
+            bytes = uart_read_port(device, &read_data[bytes_read], bytes_available);
+
+            if (bytes > 0)
+            {
+                bytes_read += bytes;
+            }
+            else
+            {
+                status = OS_ERROR;
+                break;
+            }
         }
-
-        /* Read data */
-        bytes = uart_read_port(device, read_data, bytes_available);
-        if (bytes != bytes_available)
+        else
         {
-#ifdef PAYLOAD_IF_CFG_DEBUG
-            OS_printf("  PAYLOAD_IF_ReadData: Bytes read != to requested! \n");
-#endif
-            status = OS_ERROR;
-        } /* uart_read */
+            ms_timeout_counter++;
+            OS_TaskDelay(1);
+        }
     }
-    else
+
+    if (bytes_read != data_length)
     {
         status = OS_ERROR;
-    } /* ms_timeout_counter */
+    }
 
     return status;
+    /* End custom read logic */
 }
 
 /*
