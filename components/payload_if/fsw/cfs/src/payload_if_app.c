@@ -759,15 +759,66 @@ void PAYLOAD_IF_RxTask(void)
                 switch (result)
                 {
                     case PL_DECODE_OK:
-                        /* TODO: validate CCSDS header/length/allowlist, then publish */
+                    {
+                        plframe_decode_ctx_t *ctx = &PAYLOAD_IF_AppData.DecodeCtx;
+                        uint16_t apid;
+                        size_t   ccsds_len;
+
+                        /* Body must be at least long enough for a 6-byte CCSDS primary header */
+                        if (ctx->body_len < 6)
+                        {
+                            PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceErrorCount++;
+                            break;
+                        }
+
+                        apid = ((ctx->body[0] << 8) | ctx->body[1]) & 0x07FF;
+
+                        /* CCSDS length field: (total bytes after 6-byte header) - 1 */
+                        ccsds_len = ((ctx->body[4] << 8) | ctx->body[5]) + 1 + 6;
+                        if (ccsds_len != ctx->body_len)
+                        {
+                            PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceErrorCount++;
+                            break;
+                        }
+
+                        if (!star_payload_apid_allowed_pay_to_bus(apid))
+                        {
+                            PAYLOAD_IF_AppData.HkTelemetryPkt.CommandErrorCount++;
+                            break;
+                        }
+
+                        /* All checks passed: publish the unmodified CCSDS packet.
+                        ** Per cfe_sb.h, BufPtr must come from CFE_SB_AllocateMessageBuffer;
+                        ** we cannot transmit our own decoder buffer directly. */
+                        {
+                            CFE_SB_Buffer_t *sb_buf = CFE_SB_AllocateMessageBuffer(ctx->body_len);
+                            if (sb_buf != NULL)
+                            {
+                                memcpy(sb_buf, ctx->body, ctx->body_len);
+                                if (CFE_SB_TransmitBuffer(sb_buf, false) == CFE_SUCCESS)
+                                {
+                                    PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceCount++;
+                                }
+                                else
+                                {
+                                    CFE_SB_ReleaseMessageBuffer(sb_buf);
+                                    PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceErrorCount++;
+                                }
+                            }
+                            else
+                            {
+                                PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceErrorCount++;
+                            }
+                        }
                         break;
+                    }
 
                     case PL_DECODE_BAD_CRC:
-                        /* TODO: increment bad CRC counter */
+                        PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceErrorCount++;
                         break;
 
                     case PL_DECODE_RESYNC:
-                        /* TODO: increment resync counter */
+                        PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceErrorCount++;
                         break;
 
                     case PL_DECODE_NEED_MORE:

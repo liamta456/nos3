@@ -21,6 +21,7 @@
 #include "payload_if_version.h"
 #include "hwlib.h"
 #include "payload_link/frame.h"
+#include "star/payload_apids.h"
 
 /* TODO: This is specific to the payload_if application, remove if using template generator */
 #include "mgr_msg.h"
