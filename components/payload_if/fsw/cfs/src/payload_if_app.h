@@ -20,6 +20,7 @@
 #include "payload_if_msgids.h"
 #include "payload_if_version.h"
 #include "hwlib.h"
+#include "payload_link/frame.h"
 
 /* TODO: This is specific to the payload_if application, remove if using template generator */
 #include "mgr_msg.h"
@@ -68,6 +69,9 @@ typedef struct
     ** TODO: Make specific to your application
     */
     uart_info_t Payload_ifUart; /* Hardware protocol definition */
+    CFE_ES_TaskId_t          RxTaskID;      /* Child task ID for asynchronous UART receive */
+    volatile bool            RxTaskRunning; /* Set true to run RxTask loop, false to stop it */
+    plframe_decode_ctx_t     DecodeCtx;     /* Persistent payload-link decoder state */
 
 } PAYLOAD_IF_AppData_t;
 
@@ -96,6 +100,7 @@ void  PAYLOAD_IF_Enable(void);
 void  PAYLOAD_IF_Disable(void);
 void  PAYLOAD_IF_Configure(void);
 int32 PAYLOAD_IF_VerifyCmdLength(CFE_MSG_Message_t *msg, uint16 expected_length);
+void  PAYLOAD_IF_RxTask(void);
 
 /* TODO: This is specific to the payload_if application, remove if using template generator */
 void PAYLOAD_IF_ProcessMgrHk(void);

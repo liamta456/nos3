@@ -162,6 +162,22 @@ int32 PAYLOAD_IF_AppInit(void)
     }
 
     /*
+    ** Initialize the payload-link decoder state and start the asynchronous
+    ** UART receive task. Decoder state must persist for the app's lifetime.
+    */
+    plframe_decode_init(&PAYLOAD_IF_AppData.DecodeCtx);
+    PAYLOAD_IF_AppData.RxTaskRunning = true;
+
+    status = CFE_ES_CreateChildTask(&PAYLOAD_IF_AppData.RxTaskID, PAYLOAD_IF_RX_TASK_NAME, PAYLOAD_IF_RxTask,
+                                    0, PAYLOAD_IF_RX_TASK_STACK_SIZE, PAYLOAD_IF_RX_TASK_PRIORITY, 0);
+    if (status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(PAYLOAD_IF_STARTUP_INF_EID, CFE_EVS_EventType_ERROR,
+                          "PAYLOAD_IF: Error creating RX task, RC=0x%08X", (unsigned int)status);
+        return status;
+    }
+
+    /*
     ** TODO: Subscribe to any other messages here
     */
 
@@ -716,6 +732,55 @@ void PAYLOAD_IF_Configure(void)
 /*
 ** Verify command packet length matches expected
 */
+/*
+** Asynchronous UART receive task
+** Continuously polls for available UART bytes and feeds them into the
+** persistent payload-link decoder. Runs until RxTaskRunning is cleared
+** by PAYLOAD_IF_Disable.
+*/
+void PAYLOAD_IF_RxTask(void)
+{
+    uint8_t byte;
+    int32   bytes_available;
+    int32   bytes_read;
+
+    while (PAYLOAD_IF_AppData.RxTaskRunning)
+    {
+        bytes_available = uart_bytes_available(&PAYLOAD_IF_AppData.Payload_ifUart);
+
+        if (bytes_available > 0)
+        {
+            bytes_read = uart_read_port(&PAYLOAD_IF_AppData.Payload_ifUart, &byte, 1);
+
+            if (bytes_read == 1)
+            {
+                plframe_decode_result_t result = plframe_decode_feed(&PAYLOAD_IF_AppData.DecodeCtx, byte);
+
+                switch (result)
+                {
+                    case PL_DECODE_OK:
+                        /* TODO: validate CCSDS header/length/allowlist, then publish */
+                        break;
+
+                    case PL_DECODE_BAD_CRC:
+                        /* TODO: increment bad CRC counter */
+                        break;
+
+                    case PL_DECODE_RESYNC:
+                        /* TODO: increment resync counter */
+                        break;
+
+                    case PL_DECODE_NEED_MORE:
+                    default:
+                        break;
+                }
+            }
+        }
+
+        OS_TaskDelay(PAYLOAD_IF_RX_TASK_MS_DELAY);
+    }
+}
+
 int32 PAYLOAD_IF_VerifyCmdLength(CFE_MSG_Message_t *msg, uint16 expected_length)
 {
     int32             status        = OS_SUCCESS;

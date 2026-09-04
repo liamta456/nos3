@@ -56,6 +56,10 @@ add_cfe_coverage_test(payload_if CCSDS
     "${PROJECT_SOURCE_DIR}/../../../../fsw/cfe/modules/msg/fsw/src/cfe_msg_ccsdspri.c"
 )
 
+# Link the real payload-link library into the ALL test target, since
+# payload_if_app.c now calls plframe_decode_init/plframe_decode_feed directly.
+target_link_libraries(coverage-payload_if-ALL-testrunner payload_link)
+
 add_cfe_coverage_dependency(payload_if ALL payload_if-internal)
 # The payload_if uses library functions provided by payload_if_lib so must be linked
 # with the payload_if_lib stub library (this is mainly just an example of how this 
