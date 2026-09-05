@@ -648,9 +648,14 @@ void PAYLOAD_IF_Disable(void)
         PAYLOAD_IF_AppData.HkTelemetryPkt.CommandCount++;
 
         /*
+        ** Stop the asynchronous RX task BEFORE closing the UART handle, so it
+        ** cannot be mid-read on a handle that's about to be closed.
+        */
+        PAYLOAD_IF_AppData.RxTaskRunning = false;
+        OS_TaskDelay(3 * PAYLOAD_IF_RX_TASK_MS_DELAY);
+
+        /*
         ** Do the action, close hardware interface and set disabled
-        ** TODO: Make specific to your application depending on protocol in use
-        ** Note that other components provide examples for the different protocols
         */
         status = uart_close_port(&PAYLOAD_IF_AppData.Payload_ifUart);
         if (status == OS_SUCCESS)
@@ -895,6 +900,8 @@ void PAYLOAD_IF_RxTask(void)
 
         OS_TaskDelay(PAYLOAD_IF_RX_TASK_MS_DELAY);
     }
+
+    CFE_ES_ExitChildTask();
 }
 
 int32 PAYLOAD_IF_VerifyCmdLength(CFE_MSG_Message_t *msg, uint16 expected_length)
