@@ -468,27 +468,12 @@ void PAYLOAD_IF_ProcessTelemetryRequest(void)
 */
 void PAYLOAD_IF_ReportHousekeeping(void)
 {
-    int32 status = OS_SUCCESS;
-
-    /* Check that device is enabled */
-    if (PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceEnabled == PAYLOAD_IF_DEVICE_ENABLED)
-    {
-        status = PAYLOAD_IF_RequestHK(&PAYLOAD_IF_AppData.Payload_ifUart,
-                                  (PAYLOAD_IF_Device_HK_tlm_t *)&PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceHK);
-        if (status == OS_SUCCESS)
-        {
-            PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceCount++;
-        }
-        else
-        {
-            PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceErrorCount++;
-            CFE_EVS_SendEvent(PAYLOAD_IF_REQ_HK_ERR_EID, CFE_EVS_EventType_ERROR,
-                              "PAYLOAD_IF: Request device HK reported error %d", status);
-        }
-    }
-    /* Intentionally do not report errors if disabled */
-
-    /* Time stamp and publish housekeeping telemetry */
+    /*
+    ** Link-layer housekeeping is passive: RxTask and SendToPayload update
+    ** the counters in HkTelemetryPkt as frames actually occur. Reporting
+    ** here does not poll or command the device; it simply timestamps and
+    ** publishes the current counter state.
+    */
     CFE_SB_TimeStampMsg((CFE_MSG_Message_t *)&PAYLOAD_IF_AppData.HkTelemetryPkt);
     CFE_SB_TransmitMsg((CFE_MSG_Message_t *)&PAYLOAD_IF_AppData.HkTelemetryPkt, true);
     return;
@@ -499,42 +484,14 @@ void PAYLOAD_IF_ReportHousekeeping(void)
 */
 void PAYLOAD_IF_ReportDeviceTelemetry(void)
 {
-    int32 status = OS_SUCCESS;
-
-    /* Check that device is enabled */
-    if (PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceEnabled == PAYLOAD_IF_DEVICE_ENABLED)
-    {
-        status = PAYLOAD_IF_RequestData(&PAYLOAD_IF_AppData.Payload_ifUart,
-                                    (PAYLOAD_IF_Device_Data_tlm_t *)&PAYLOAD_IF_AppData.DevicePkt.Payload_if);
-        if (status == OS_SUCCESS)
-        {
-            /* Update packet count */
-            PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceCount++;
-
-            /* Time stamp and publish data telemetry */
-            CFE_SB_TimeStampMsg((CFE_MSG_Message_t *)&PAYLOAD_IF_AppData.DevicePkt);
-            CFE_SB_TransmitMsg((CFE_MSG_Message_t *)&PAYLOAD_IF_AppData.DevicePkt, true);
-        }
-        else
-        {
-            PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceErrorCount++;
-            CFE_EVS_SendEvent(PAYLOAD_IF_REQ_DATA_ERR_EID, CFE_EVS_EventType_ERROR,
-                              "PAYLOAD_IF: Request device data reported error %d", status);
-        }
-
-        /* Check device status and act on error */
-        if (PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceHK.DeviceStatus != 0)
-        {
-            /* Any bit is an error, halting communication until device power cycled */
-            PAYLOAD_IF_Disable();
-
-            /* Send device status error to the console */
-            CFE_EVS_SendEvent(PAYLOAD_IF_REQ_DATA_STATUS_ERR_EID, CFE_EVS_EventType_ERROR,
-                              "PAYLOAD_IF: Request device data reported status error %d",
-                              PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceHK.DeviceStatus);
-        }
-    }
-    /* Intentionally do not report errors if device disabled */
+    /*
+    ** Device telemetry is now received asynchronously by RxTask when a
+    ** 0x011 payload telemetry packet arrives from the PayOBC, and published
+    ** directly at that time. This ground-triggered report simply republishes
+    ** the most recently cached DevicePkt rather than polling the device.
+    */
+    CFE_SB_TimeStampMsg((CFE_MSG_Message_t *)&PAYLOAD_IF_AppData.DevicePkt);
+    CFE_SB_TransmitMsg((CFE_MSG_Message_t *)&PAYLOAD_IF_AppData.DevicePkt, true);
     return;
 }
 
