@@ -162,6 +162,19 @@ int32 PAYLOAD_IF_AppInit(void)
     }
 
     /*
+    ** Subscribe to the outbound BusOBC->PayOBC payload command message.
+    ** Any packet published to this MID gets forwarded to the PayOBC over UART.
+    */
+    status = CFE_SB_Subscribe(CFE_SB_ValueToMsgId(STAR_APID_PAYLOAD_COMMAND), PAYLOAD_IF_AppData.CmdPipe);
+    if (status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(PAYLOAD_IF_SUB_CMD_ERR_EID, CFE_EVS_EventType_ERROR,
+                          "Error Subscribing to Payload Command, MID=0x%04X, RC=0x%08X", STAR_APID_PAYLOAD_COMMAND,
+                          (unsigned int)status);
+        return status;
+    }
+
+    /*
     ** Initialize the payload-link decoder state and start the asynchronous
     ** UART receive task. Decoder state must persist for the app's lifetime.
     */
@@ -256,6 +269,13 @@ void PAYLOAD_IF_ProcessCommandPacket(void)
         */
         case MGR_HK_TLM_MID:
             PAYLOAD_IF_ProcessMgrHk();
+            break;
+
+        /*
+        ** Outbound BusOBC->PayOBC payload command: encode and send over UART
+        */
+        case STAR_APID_PAYLOAD_COMMAND:
+            PAYLOAD_IF_SendToPayload();
             break;
 
         /*
@@ -738,6 +758,51 @@ void PAYLOAD_IF_Configure(void)
 ** persistent payload-link decoder. Runs until RxTaskRunning is cleared
 ** by PAYLOAD_IF_Disable.
 */
+/*
+** Outbound routing: encode a Software Bus message as a payload-link frame
+** and write it to UART. Serialized against the RX task via a single write
+** call per message so bytes from concurrent writes cannot interleave.
+*/
+void PAYLOAD_IF_SendToPayload(void)
+{
+    size_t  msg_size  = 0;
+    uint8_t frame_buf[PL_MAX_FRAME_LEN];
+    size_t  frame_size;
+    int32   bytes_written;
+
+    CFE_MSG_GetSize((CFE_MSG_Message_t *)PAYLOAD_IF_AppData.MsgPtr, &msg_size);
+
+    if (msg_size < PL_MIN_BODY_LEN || msg_size > PL_MAX_BODY_LEN)
+    {
+        PAYLOAD_IF_AppData.HkTelemetryPkt.CommandErrorCount++;
+        CFE_EVS_SendEvent(PAYLOAD_IF_CMD_ERR_EID, CFE_EVS_EventType_ERROR,
+                          "PAYLOAD_IF: Outbound message size %zu out of range [%d,%d]", msg_size,
+                          PL_MIN_BODY_LEN, PL_MAX_BODY_LEN);
+        return;
+    }
+
+    frame_size = plframe_encode((const uint8_t *)PAYLOAD_IF_AppData.MsgPtr, msg_size, frame_buf);
+    if (frame_size == 0)
+    {
+        PAYLOAD_IF_AppData.HkTelemetryPkt.CommandErrorCount++;
+        CFE_EVS_SendEvent(PAYLOAD_IF_CMD_ERR_EID, CFE_EVS_EventType_ERROR,
+                          "PAYLOAD_IF: Failed to encode outbound frame");
+        return;
+    }
+
+    bytes_written = uart_write_port(&PAYLOAD_IF_AppData.Payload_ifUart, frame_buf, frame_size);
+    if (bytes_written == (int32)frame_size)
+    {
+        PAYLOAD_IF_AppData.HkTelemetryPkt.CommandCount++;
+    }
+    else
+    {
+        PAYLOAD_IF_AppData.HkTelemetryPkt.CommandErrorCount++;
+        CFE_EVS_SendEvent(PAYLOAD_IF_CMD_ERR_EID, CFE_EVS_EventType_ERROR,
+                          "PAYLOAD_IF: Partial/failed UART write, wrote %d of %zu bytes", bytes_written, frame_size);
+    }
+}
+
 void PAYLOAD_IF_RxTask(void)
 {
     uint8_t byte;
