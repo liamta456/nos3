@@ -687,8 +687,14 @@ void PAYLOAD_IF_Configure(void)
         /* Increment command success counter */
         PAYLOAD_IF_AppData.HkTelemetryPkt.CommandCount++;
 
-        /* Do the action, command device to with a new configuration */
-        device_status = PAYLOAD_IF_CommandDevice(&PAYLOAD_IF_AppData.Payload_ifUart, PAYLOAD_IF_DEVICE_CFG_CMD, config_cmd->DeviceCfg);
+        /*
+        ** TODO: The legacy 0xDEAD/0xBEEF config command is removed. There is
+        ** no defined payload-link/CCSDS packet format for configuration yet
+        ** (see payload-apids registry -- no CONFIG APID exists). Once the
+        ** team defines one, encode it here via PAYLOAD_IF_SendToPayload's
+        ** pattern instead of a direct device call.
+        */
+        device_status = OS_SUCCESS;
         if (device_status == OS_SUCCESS)
         {
             /* Increment device success counter */
