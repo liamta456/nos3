@@ -103,6 +103,7 @@ void  PAYLOAD_IF_Configure(void);
 int32 PAYLOAD_IF_VerifyCmdLength(CFE_MSG_Message_t *msg, uint16 expected_length);
 void  PAYLOAD_IF_RxTask(void);
 void  PAYLOAD_IF_SendToPayload(void);
+int32 PAYLOAD_IF_HandleDecodedFrame(void);
 
 /* TODO: This is specific to the payload_if application, remove if using template generator */
 void PAYLOAD_IF_ProcessMgrHk(void);

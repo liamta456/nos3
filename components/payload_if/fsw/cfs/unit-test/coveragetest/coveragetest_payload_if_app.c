@@ -677,6 +677,78 @@ void Test_PAYLOAD_IF_Disable(void)
                   (unsigned int)EventTest.MatchCount);
 }
 
+void Test_PAYLOAD_IF_HandleDecodedFrame_LengthMismatch(void)
+{
+    /*
+     * Test Case For:
+     * int32 PAYLOAD_IF_HandleDecodedFrame(void)
+     * A CCSDS length field that disagrees with the actual body length
+     * must be rejected before anything is published.
+     */
+    int32 result;
+
+    memset(&PAYLOAD_IF_AppData.DecodeCtx, 0, sizeof(PAYLOAD_IF_AppData.DecodeCtx));
+    PAYLOAD_IF_AppData.DecodeCtx.body[0] = 0x00;
+    PAYLOAD_IF_AppData.DecodeCtx.body[1] = 0x10; /* APID 0x010 */
+    PAYLOAD_IF_AppData.DecodeCtx.body[4] = 0x00;
+    PAYLOAD_IF_AppData.DecodeCtx.body[5] = 0x63; /* claims 99 extra bytes, way more than we have */
+    PAYLOAD_IF_AppData.DecodeCtx.body_len = 7;   /* actual body is only 7 bytes */
+
+    result = PAYLOAD_IF_HandleDecodedFrame();
+
+    UtAssert_INT32_EQ(result, OS_ERROR);
+}
+
+void Test_PAYLOAD_IF_HandleDecodedFrame_DisallowedApid(void)
+{
+    /*
+     * Test Case For:
+     * int32 PAYLOAD_IF_HandleDecodedFrame(void)
+     * An APID that is not on the PayOBC->BusOBC allowlist (e.g. one that
+     * only exists in the other direction) must be rejected.
+     */
+    int32 result;
+
+    memset(&PAYLOAD_IF_AppData.DecodeCtx, 0, sizeof(PAYLOAD_IF_AppData.DecodeCtx));
+    /* 0x010 is BusOBC->PayOBC only (PAYLOAD_COMMAND); not allowed inbound */
+    PAYLOAD_IF_AppData.DecodeCtx.body[0] = 0x00;
+    PAYLOAD_IF_AppData.DecodeCtx.body[1] = 0x10;
+    PAYLOAD_IF_AppData.DecodeCtx.body[4] = 0x00;
+    PAYLOAD_IF_AppData.DecodeCtx.body[5] = 0x00; /* length agrees: 7 - 7 = 0 */
+    PAYLOAD_IF_AppData.DecodeCtx.body_len = 7;
+
+    result = PAYLOAD_IF_HandleDecodedFrame();
+
+    UtAssert_INT32_EQ(result, OS_ERROR);
+}
+
+void Test_PAYLOAD_IF_HandleDecodedFrame_AllowedApid(void)
+{
+    /*
+     * Test Case For:
+     * int32 PAYLOAD_IF_HandleDecodedFrame(void)
+     * A properly formed, allowed inbound APID (0x011, PAYLOAD_TELEMETRY)
+     * should be accepted and published.
+     */
+    int32 result;
+    CFE_SB_Buffer_t StubBuf;
+
+    memset(&PAYLOAD_IF_AppData.DecodeCtx, 0, sizeof(PAYLOAD_IF_AppData.DecodeCtx));
+    PAYLOAD_IF_AppData.DecodeCtx.body[0] = 0x00;
+    PAYLOAD_IF_AppData.DecodeCtx.body[1] = 0x11; /* APID 0x011, PayOBC->BusOBC telemetry */
+    PAYLOAD_IF_AppData.DecodeCtx.body[4] = 0x00;
+    PAYLOAD_IF_AppData.DecodeCtx.body[5] = 0x00; /* length agrees: 7 - 7 = 0 */
+    PAYLOAD_IF_AppData.DecodeCtx.body_len = 7;
+
+    CFE_SB_Buffer_t *StubBufPtr = &StubBuf;
+    UT_SetDataBuffer(UT_KEY(CFE_SB_AllocateMessageBuffer), &StubBufPtr, sizeof(StubBufPtr), false);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_TransmitBuffer), CFE_SUCCESS);
+
+    result = PAYLOAD_IF_HandleDecodedFrame();
+
+    UtAssert_INT32_EQ(result, OS_SUCCESS);
+}
+
 /*
  * Setup function prior to every test
  */
@@ -706,4 +778,7 @@ void UtTest_Setup(void)
     ADD_TEST(PAYLOAD_IF_Configure);
     ADD_TEST(PAYLOAD_IF_Enable);
     ADD_TEST(PAYLOAD_IF_Disable);
+    ADD_TEST(PAYLOAD_IF_HandleDecodedFrame_LengthMismatch);
+    ADD_TEST(PAYLOAD_IF_HandleDecodedFrame_DisallowedApid);
+    ADD_TEST(PAYLOAD_IF_HandleDecodedFrame_AllowedApid);
 }
