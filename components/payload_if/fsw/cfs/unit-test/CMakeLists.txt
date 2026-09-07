@@ -61,6 +61,19 @@ add_cfe_coverage_test(payload_if CCSDS
 target_link_libraries(coverage-payload_if-ALL-testrunner payload_link)
 target_link_libraries(coverage-payload_if-ALL-testrunner STAR::payload_apids)
 
+# Add a coverage test executable called "payload_if-LINK" that verifies
+# plframe_decode_feed handles a frame split across reads and two frames
+# delivered back to back, matching how PAYLOAD_IF_RxTask feeds it bytes.
+add_cfe_coverage_test(payload_if LINK
+    "coveragetest/coveragetest_payload_if_link.c"
+    "${PROJECT_SOURCE_DIR}/../payload-link/src/crc16.c"
+    "${PROJECT_SOURCE_DIR}/../payload-link/src/pack.c"
+    "${PROJECT_SOURCE_DIR}/../payload-link/src/framer.c"
+    "${PROJECT_SOURCE_DIR}/../payload-link/src/frame.c"
+)
+target_include_directories(coverage-payload_if-LINK-object PUBLIC "${PROJECT_SOURCE_DIR}/../payload-link/include")
+target_compile_options(coverage-payload_if-LINK-object PRIVATE -Wno-error=switch-default)
+
 add_cfe_coverage_dependency(payload_if ALL payload_if-internal)
 # The payload_if uses library functions provided by payload_if_lib so must be linked
 # with the payload_if_lib stub library (this is mainly just an example of how this 
