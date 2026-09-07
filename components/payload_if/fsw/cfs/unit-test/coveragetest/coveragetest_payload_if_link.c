@@ -89,8 +89,90 @@ void Test_Frame_TwoBackToBack(void)
     UtAssert_INT32_EQ(ok_count, 2);
 }
 
+void Test_Frame_GarbageBeforeSync(void)
+{
+    uint8_t body[7];
+    size_t  body_len;
+    uint8_t frame[PL_MAX_FRAME_LEN];
+    size_t  frame_len;
+    plframe_decode_ctx_t ctx;
+    plframe_decode_result_t result = PL_DECODE_NEED_MORE;
+    uint8_t garbage[5] = {0x00, 0xFF, 0x12, 0x34, 0x56};
+    size_t  i;
+    int     ok_seen = 0;
+
+    build_test_body(body, &body_len);
+    frame_len = plframe_encode(body, body_len, frame);
+
+    plframe_decode_init(&ctx);
+
+    /* Feed junk bytes first -- decoder must not accept them as a frame */
+    for (i = 0; i < sizeof(garbage); i++)
+    {
+        result = plframe_decode_feed(&ctx, garbage[i]);
+        UtAssert_True(result != PL_DECODE_OK, "Garbage never produces a false OK");
+    }
+
+    /* Now feed a real, valid frame -- decoder must recover and find it */
+    for (i = 0; i < frame_len; i++)
+    {
+        result = plframe_decode_feed(&ctx, frame[i]);
+        if (result == PL_DECODE_OK)
+        {
+            ok_seen = 1;
+            UtAssert_True(memcmp(ctx.body, body, body_len) == 0, "Recovered body matches original");
+        }
+    }
+    UtAssert_True(ok_seen == 1, "Decoder recovered a valid frame after garbage");
+}
+
+void Test_Frame_BadCrcThenValid(void)
+{
+    uint8_t body[7];
+    size_t  body_len;
+    uint8_t frame[PL_MAX_FRAME_LEN];
+    size_t  frame_len;
+    plframe_decode_ctx_t ctx;
+    plframe_decode_result_t result;
+    size_t  i;
+    int     bad_crc_seen = 0;
+    int     ok_seen      = 0;
+
+    build_test_body(body, &body_len);
+    frame_len = plframe_encode(body, body_len, frame);
+
+    /* Corrupt the last byte (part of the CRC) to force a bad-CRC result */
+    frame[frame_len - 1] ^= 0xFF;
+
+    plframe_decode_init(&ctx);
+    for (i = 0; i < frame_len; i++)
+    {
+        result = plframe_decode_feed(&ctx, frame[i]);
+        if (result == PL_DECODE_BAD_CRC)
+        {
+            bad_crc_seen = 1;
+        }
+    }
+    UtAssert_True(bad_crc_seen == 1, "Corrupted frame reported as bad CRC");
+
+    /* Re-encode a fresh, uncorrupted frame and confirm the same decoder recovers */
+    frame_len = plframe_encode(body, body_len, frame);
+    for (i = 0; i < frame_len; i++)
+    {
+        result = plframe_decode_feed(&ctx, frame[i]);
+        if (result == PL_DECODE_OK)
+        {
+            ok_seen = 1;
+            UtAssert_True(memcmp(ctx.body, body, body_len) == 0, "Body matches after recovery");
+        }
+    }
+    UtAssert_True(ok_seen == 1, "Decoder accepts next valid frame after bad CRC, without restart");
+}
+
 void UtTest_Setup(void)
 {
     UtTest_Add(Test_Frame_SplitAcrossReads, NULL, NULL, "Test_Frame_SplitAcrossReads");
     UtTest_Add(Test_Frame_TwoBackToBack, NULL, NULL, "Test_Frame_TwoBackToBack");
+    UtTest_Add(Test_Frame_GarbageBeforeSync, NULL, NULL, "Test_Frame_GarbageBeforeSync");
+    UtTest_Add(Test_Frame_BadCrcThenValid, NULL, NULL, "Test_Frame_BadCrcThenValid");
 }
