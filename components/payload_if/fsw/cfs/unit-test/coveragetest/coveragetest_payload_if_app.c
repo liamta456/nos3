@@ -816,6 +816,52 @@ void Test_PAYLOAD_IF_SendToPayload_OversizedRejected(void)
     UtAssert_INT32_EQ(call_count_after, call_count_before);
 }
 
+void Test_PAYLOAD_IF_SendToPayload_MinSizeAccepted(void)
+{
+    /*
+     * Test Case For:
+     * void PAYLOAD_IF_SendToPayload(void)
+     * The smallest allowed body size (PL_MIN_BODY_LEN) must be accepted
+     * and actually written to UART, not rejected as too small.
+     */
+    size_t   msg_size = PL_MIN_BODY_LEN;
+    int32_t  write_retcode = (int32_t)msg_size + 4 + 2 + 2;
+    int      call_count_before;
+    int      call_count_after;
+
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetSize), &msg_size, sizeof(msg_size), false);
+    UT_SetDeferredRetcode(UT_KEY(uart_write_port), 1, write_retcode);
+
+    call_count_before = UT_GetStubCount(UT_KEY(uart_write_port));
+    PAYLOAD_IF_SendToPayload();
+    call_count_after = UT_GetStubCount(UT_KEY(uart_write_port));
+
+    UtAssert_INT32_EQ(call_count_after, call_count_before + 1);
+}
+
+void Test_PAYLOAD_IF_SendToPayload_MaxSizeAccepted(void)
+{
+    /*
+     * Test Case For:
+     * void PAYLOAD_IF_SendToPayload(void)
+     * The largest allowed body size (PL_MAX_BODY_LEN) must be accepted
+     * and actually written to UART, not rejected as too large.
+     */
+    size_t   msg_size = PL_MAX_BODY_LEN;
+    int32_t  write_retcode = (int32_t)msg_size + 4 + 2 + 2;
+    int      call_count_before;
+    int      call_count_after;
+
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetSize), &msg_size, sizeof(msg_size), false);
+    UT_SetDeferredRetcode(UT_KEY(uart_write_port), 1, write_retcode);
+
+    call_count_before = UT_GetStubCount(UT_KEY(uart_write_port));
+    PAYLOAD_IF_SendToPayload();
+    call_count_after = UT_GetStubCount(UT_KEY(uart_write_port));
+
+    UtAssert_INT32_EQ(call_count_after, call_count_before + 1);
+}
+
 /*
  * Setup function prior to every test
  */
@@ -850,4 +896,6 @@ void UtTest_Setup(void)
     ADD_TEST(PAYLOAD_IF_HandleDecodedFrame_AllowedApid);
     ADD_TEST(PAYLOAD_IF_SendToPayload_ValidPacket);
     ADD_TEST(PAYLOAD_IF_SendToPayload_OversizedRejected);
+    ADD_TEST(PAYLOAD_IF_SendToPayload_MinSizeAccepted);
+    ADD_TEST(PAYLOAD_IF_SendToPayload_MaxSizeAccepted);
 }
