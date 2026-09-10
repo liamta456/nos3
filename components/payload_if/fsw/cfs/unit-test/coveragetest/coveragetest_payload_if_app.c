@@ -862,6 +862,41 @@ void Test_PAYLOAD_IF_SendToPayload_MaxSizeAccepted(void)
     UtAssert_INT32_EQ(call_count_after, call_count_before + 1);
 }
 
+void Test_PAYLOAD_IF_HandleDecodedFrame_TransmitFailure(void)
+{
+    /*
+     * Test Case For:
+     * int32 PAYLOAD_IF_HandleDecodedFrame(void)
+     * If CFE_SB_TransmitBuffer fails after a successful allocation, the
+     * buffer must be released via CFE_SB_ReleaseMessageBuffer and the
+     * function must report failure rather than crashing or leaking.
+     */
+    int32 result;
+    CFE_SB_Buffer_t  StubBuf;
+    CFE_SB_Buffer_t *StubBufPtr = &StubBuf;
+    int              release_count_before;
+    int              release_count_after;
+
+    memset(&PAYLOAD_IF_AppData.DecodeCtx, 0, sizeof(PAYLOAD_IF_AppData.DecodeCtx));
+    PAYLOAD_IF_AppData.DecodeCtx.body[0] = 0x00;
+    PAYLOAD_IF_AppData.DecodeCtx.body[1] = 0x11; /* allowed APID */
+    PAYLOAD_IF_AppData.DecodeCtx.body[4] = 0x00;
+    PAYLOAD_IF_AppData.DecodeCtx.body[5] = 0x00;
+    PAYLOAD_IF_AppData.DecodeCtx.body_len = 7;
+
+    UT_SetDataBuffer(UT_KEY(CFE_SB_AllocateMessageBuffer), &StubBufPtr, sizeof(StubBufPtr), false);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_TransmitBuffer), CFE_SB_BAD_ARGUMENT);
+
+    release_count_before = UT_GetStubCount(UT_KEY(CFE_SB_ReleaseMessageBuffer));
+
+    result = PAYLOAD_IF_HandleDecodedFrame();
+
+    release_count_after = UT_GetStubCount(UT_KEY(CFE_SB_ReleaseMessageBuffer));
+
+    UtAssert_INT32_EQ(result, OS_ERROR);
+    UtAssert_INT32_EQ(release_count_after, release_count_before + 1);
+}
+
 /*
  * Setup function prior to every test
  */
@@ -898,4 +933,5 @@ void UtTest_Setup(void)
     ADD_TEST(PAYLOAD_IF_SendToPayload_OversizedRejected);
     ADD_TEST(PAYLOAD_IF_SendToPayload_MinSizeAccepted);
     ADD_TEST(PAYLOAD_IF_SendToPayload_MaxSizeAccepted);
+    ADD_TEST(PAYLOAD_IF_HandleDecodedFrame_TransmitFailure);
 }
