@@ -99,6 +99,7 @@ int32_t uart_write_port(uart_info_t *device, uint8_t data[], const uint32_t numB
     UT_GenStub_SetupReturnBuffer(uart_write_port, int32_t);
 
     UT_GenStub_AddParam(uart_write_port, uart_info_t *, device);
+    UT_GenStub_AddParam(uart_write_port, uint8_t *, data);
     UT_GenStub_AddParam(uart_write_port, const uint32_t, numBytes);
 
     UT_GenStub_Execute(uart_write_port, Basic, NULL);

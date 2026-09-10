@@ -749,6 +749,73 @@ void Test_PAYLOAD_IF_HandleDecodedFrame_AllowedApid(void)
     UtAssert_INT32_EQ(result, OS_SUCCESS);
 }
 
+/* Captures the bytes actually passed to uart_write_port for comparison */
+static uint8_t Captured_UartWriteData[PL_MAX_FRAME_LEN];
+static size_t  Captured_UartWriteLen;
+
+static void UartWriteCapture_Hook(void *UserObj, UT_EntryKey_t FuncKey, const UT_StubContext_t *Context)
+{
+    uint8_t *data           = UT_Hook_GetArgValueByName(Context, "data", uint8_t *);
+    uint32_t       numBytes = UT_Hook_GetArgValueByName(Context, "numBytes", uint32_t);
+
+    Captured_UartWriteLen = numBytes;
+    if (numBytes <= sizeof(Captured_UartWriteData))
+    {
+        memcpy(Captured_UartWriteData, data, numBytes);
+    }
+}
+
+void Test_PAYLOAD_IF_SendToPayload_ValidPacket(void)
+{
+    /*
+     * Test Case For:
+     * void PAYLOAD_IF_SendToPayload(void)
+     * A valid outbound message must be encoded and the exact frame bytes
+     * must reach uart_write_port unmodified.
+     */
+    uint8_t test_msg[7] = {0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0xAB};
+    size_t  msg_size    = sizeof(test_msg);
+    uint8_t expected_frame[PL_MAX_FRAME_LEN];
+    size_t  expected_frame_len;
+
+    PAYLOAD_IF_AppData.MsgPtr = (CFE_MSG_Message_t *)test_msg;
+
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetSize), &msg_size, sizeof(msg_size), false);
+    UT_SetHandlerFunction(UT_KEY(uart_write_port), UartWriteCapture_Hook, NULL);
+    UT_SetDeferredRetcode(UT_KEY(uart_write_port), 1, (int32_t)msg_size + 4 + 2 + 2);
+
+    expected_frame_len = plframe_encode(test_msg, msg_size, expected_frame);
+
+    PAYLOAD_IF_SendToPayload();
+
+    UtAssert_INT32_EQ((int32)Captured_UartWriteLen, (int32)expected_frame_len);
+    UtAssert_True(memcmp(Captured_UartWriteData, expected_frame, expected_frame_len) == 0,
+                  "UART write bytes match expected encoded frame exactly");
+}
+
+void Test_PAYLOAD_IF_SendToPayload_OversizedRejected(void)
+{
+    /*
+     * Test Case For:
+     * void PAYLOAD_IF_SendToPayload(void)
+     * A message larger than PL_MAX_BODY_LEN must be rejected before any
+     * encode or UART write is attempted.
+     */
+    size_t oversized = PL_MAX_BODY_LEN + 1;
+    int    call_count_before;
+    int    call_count_after;
+
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetSize), &oversized, sizeof(oversized), false);
+
+    call_count_before = UT_GetStubCount(UT_KEY(uart_write_port));
+
+    PAYLOAD_IF_SendToPayload();
+
+    call_count_after = UT_GetStubCount(UT_KEY(uart_write_port));
+
+    UtAssert_INT32_EQ(call_count_after, call_count_before);
+}
+
 /*
  * Setup function prior to every test
  */
@@ -781,4 +848,6 @@ void UtTest_Setup(void)
     ADD_TEST(PAYLOAD_IF_HandleDecodedFrame_LengthMismatch);
     ADD_TEST(PAYLOAD_IF_HandleDecodedFrame_DisallowedApid);
     ADD_TEST(PAYLOAD_IF_HandleDecodedFrame_AllowedApid);
+    ADD_TEST(PAYLOAD_IF_SendToPayload_ValidPacket);
+    ADD_TEST(PAYLOAD_IF_SendToPayload_OversizedRejected);
 }
