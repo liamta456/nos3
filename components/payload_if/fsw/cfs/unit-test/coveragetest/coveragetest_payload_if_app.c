@@ -897,6 +897,99 @@ void Test_PAYLOAD_IF_HandleDecodedFrame_TransmitFailure(void)
     UtAssert_INT32_EQ(release_count_after, release_count_before + 1);
 }
 
+void Test_PAYLOAD_IF_SendToPayload_PartialWriteFails(void)
+{
+    /*
+     * Test Case For:
+     * void PAYLOAD_IF_SendToPayload(void)
+     * A UART write that returns fewer bytes than the full frame size must
+     * be counted as a failure, not treated as a successful send.
+     */
+    uint8_t test_msg[7] = {0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0xAB};
+    size_t  msg_size    = sizeof(test_msg);
+    uint32  err_count_before;
+    uint32  err_count_after;
+
+    PAYLOAD_IF_AppData.MsgPtr = (CFE_MSG_Message_t *)test_msg;
+    PAYLOAD_IF_AppData.HkTelemetryPkt.CommandErrorCount = 0;
+
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetSize), &msg_size, sizeof(msg_size), false);
+    /* Full frame would be 7+4+2+2=15 bytes; simulate only 5 bytes written */
+    UT_SetDeferredRetcode(UT_KEY(uart_write_port), 1, 5);
+
+    err_count_before = PAYLOAD_IF_AppData.HkTelemetryPkt.CommandErrorCount;
+    PAYLOAD_IF_SendToPayload();
+    err_count_after = PAYLOAD_IF_AppData.HkTelemetryPkt.CommandErrorCount;
+
+    UtAssert_INT32_EQ((int32)err_count_after, (int32)(err_count_before + 1));
+}
+
+void Test_PAYLOAD_IF_SendToPayload_FullWriteSucceeds(void)
+{
+    /*
+     * Test Case For:
+     * void PAYLOAD_IF_SendToPayload(void)
+     * A UART write that returns exactly the full frame size must be
+     * counted as a success.
+     */
+    uint8_t test_msg[7] = {0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0xAB};
+    size_t  msg_size    = sizeof(test_msg);
+    uint32  ok_count_before;
+    uint32  ok_count_after;
+
+    PAYLOAD_IF_AppData.MsgPtr = (CFE_MSG_Message_t *)test_msg;
+    PAYLOAD_IF_AppData.HkTelemetryPkt.CommandCount = 0;
+
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetSize), &msg_size, sizeof(msg_size), false);
+    UT_SetDeferredRetcode(UT_KEY(uart_write_port), 1, (int32_t)msg_size + 4 + 2 + 2);
+
+    ok_count_before = PAYLOAD_IF_AppData.HkTelemetryPkt.CommandCount;
+    PAYLOAD_IF_SendToPayload();
+    ok_count_after = PAYLOAD_IF_AppData.HkTelemetryPkt.CommandCount;
+
+    UtAssert_INT32_EQ((int32)ok_count_after, (int32)(ok_count_before + 1));
+}
+
+void Test_PAYLOAD_IF_ResetCounters_ClearsAll(void)
+{
+    /*
+     * Test Case For:
+     * void PAYLOAD_IF_ResetCounters(void)
+     * All link-layer and command counters must return to zero after a
+     * reset, even if they were previously nonzero.
+     */
+    PAYLOAD_IF_AppData.HkTelemetryPkt.CommandCount      = 5;
+    PAYLOAD_IF_AppData.HkTelemetryPkt.CommandErrorCount = 3;
+    PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceCount       = 7;
+    PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceErrorCount  = 2;
+
+    PAYLOAD_IF_ResetCounters();
+
+    UtAssert_INT32_EQ((int32)PAYLOAD_IF_AppData.HkTelemetryPkt.CommandCount, 0);
+    UtAssert_INT32_EQ((int32)PAYLOAD_IF_AppData.HkTelemetryPkt.CommandErrorCount, 0);
+    UtAssert_INT32_EQ((int32)PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceCount, 0);
+    UtAssert_INT32_EQ((int32)PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceErrorCount, 0);
+}
+
+void Test_PAYLOAD_IF_ReportHousekeeping_ReflectsCounters(void)
+{
+    /*
+     * Test Case For:
+     * void PAYLOAD_IF_ReportHousekeeping(void)
+     * The published housekeeping packet must reflect whatever counter
+     * values are currently set, since reporting no longer polls the
+     * device -- it just publishes existing state.
+     */
+    PAYLOAD_IF_AppData.HkTelemetryPkt.CommandCount      = 11;
+    PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceErrorCount  = 4;
+
+    PAYLOAD_IF_ReportHousekeeping();
+
+    UtAssert_INT32_EQ((int32)PAYLOAD_IF_AppData.HkTelemetryPkt.CommandCount, 11);
+    UtAssert_INT32_EQ((int32)PAYLOAD_IF_AppData.HkTelemetryPkt.DeviceErrorCount, 4);
+    UtAssert_STUB_COUNT(CFE_SB_TransmitMsg, 1);
+}
+
 /*
  * Setup function prior to every test
  */
@@ -934,4 +1027,8 @@ void UtTest_Setup(void)
     ADD_TEST(PAYLOAD_IF_SendToPayload_MinSizeAccepted);
     ADD_TEST(PAYLOAD_IF_SendToPayload_MaxSizeAccepted);
     ADD_TEST(PAYLOAD_IF_HandleDecodedFrame_TransmitFailure);
+    ADD_TEST(PAYLOAD_IF_SendToPayload_PartialWriteFails);
+    ADD_TEST(PAYLOAD_IF_SendToPayload_FullWriteSucceeds);
+    ADD_TEST(PAYLOAD_IF_ResetCounters_ClearsAll);
+    ADD_TEST(PAYLOAD_IF_ReportHousekeeping_ReflectsCounters);
 }
